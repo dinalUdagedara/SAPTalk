@@ -24,9 +24,9 @@ const WORDMARK = 'SAPTalk';
 export default async function OpengraphImage() {
   const sansText = HEADLINE + SUB + WORDMARK + DOMAIN + 'INTENT ODATA';
   const [sans, sansBold, mono] = await Promise.all([
-    loadGoogleFont('Geist', 400, sansText),
-    loadGoogleFont('Geist', 600, sansText),
-    loadGoogleFont('JetBrains Mono', 400, QUESTION + QUERY),
+    loadGoogleFont('Manrope', 400, sansText),
+    loadGoogleFont('Manrope', 600, sansText),
+    loadGoogleFont('IBM Plex Mono', 400, QUESTION + QUERY),
   ]);
 
   return new ImageResponse(
@@ -43,7 +43,7 @@ export default async function OpengraphImage() {
           // One soft accent bloom, the same device the app uses behind its
           // ask bar, so the card and the page read as one thing.
           backgroundImage: `radial-gradient(1100px 420px at 15% -12%, ${BRAND.accent}22, transparent 70%)`,
-          fontFamily: 'Geist',
+          fontFamily: 'Manrope',
           color: BRAND.ink,
         }}
       >
@@ -94,7 +94,7 @@ export default async function OpengraphImage() {
           <div
             style={{
               display: 'flex',
-              fontFamily: 'JetBrains Mono',
+              fontFamily: 'IBM Plex Mono',
               fontSize: 23,
               color: BRAND.ink,
             }}
@@ -117,7 +117,7 @@ export default async function OpengraphImage() {
           <div
             style={{
               display: 'flex',
-              fontFamily: 'JetBrains Mono',
+              fontFamily: 'IBM Plex Mono',
               fontSize: 19,
               color: BRAND.accent,
               lineHeight: 1.4,
@@ -135,9 +135,9 @@ export default async function OpengraphImage() {
     {
       ...size,
       fonts: usableFonts([
-        { name: 'Geist', weight: 400, data: sans },
-        { name: 'Geist', weight: 600, data: sansBold },
-        { name: 'JetBrains Mono', weight: 400, data: mono },
+        { name: 'Manrope', weight: 400, data: sans },
+        { name: 'Manrope', weight: 600, data: sansBold },
+        { name: 'IBM Plex Mono', weight: 400, data: mono },
       ]),
     },
   );

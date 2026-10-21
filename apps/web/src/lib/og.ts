@@ -6,12 +6,13 @@
  * these have to be literals. They are the same values the app paints with.
  */
 export const BRAND = {
-  ground: '#0d1216',
-  surface: '#161f25',
-  line: '#28363e',
-  ink: '#e8f0f3',
-  muted: '#8fa4ad',
-  accent: '#5fd4c4',
+  ground: '#0a1017',
+  surface: '#121921',
+  line: '#28313c',
+  ink: '#ebeff4',
+  muted: '#969fab',
+  // The "verified" teal: the brand mark is the validated query.
+  accent: '#46dcc8',
 } as const;
 
 export const SITE_URL =

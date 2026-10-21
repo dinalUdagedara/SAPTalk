@@ -10,6 +10,9 @@
   --font-mono: var(--font-mono);
   --color-signal-ok: var(--signal-ok);
   --color-signal-warn: var(--signal-warn);
+  --color-verified: var(--verified);
+  --color-verified-foreground: var(--verified-foreground);
+  --color-verified-soft: var(--verified-soft);
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -53,66 +56,74 @@
 }
 
 /*
- * A single, deliberately dark palette -- this is a query console, and it
- * commits to that world rather than serving two themes badly. Neutrals carry a
- * slight blue-green bias toward the accent so nothing reads as flat grey.
+ * A single, deliberately dark palette on a deep blue slate -- this is a query
+ * console for business data, and it commits to that world rather than serving
+ * two themes badly.
  *
- * One accent only: teal, reserved for the query itself, focus, and success.
- * Everything else is neutral, so the generated OData is the brightest thing on
- * the page -- which is the point of the product.
+ * Two accents, each with one job:
+ * - blue (`primary`) is anything you can act on: buttons, links, focus;
+ * - teal (`verified`) is only what our own code has checked: the allowlist
+ *   step, the compiled query, check marks.
+ * Keeping them apart means teal always says "this was validated", which is the
+ * product's whole argument.
  */
 :root {
   color-scheme: dark;
 
-  --background: oklch(0.155 0.008 225);
-  --surface: oklch(0.196 0.010 228);
-  --surface-raised: oklch(0.232 0.011 228);
+  --background: oklch(0.17 0.018 255);
+  --surface: oklch(0.21 0.020 255);
+  --surface-raised: oklch(0.24 0.021 255);
 
-  --foreground: oklch(0.945 0.006 220);
-  --muted: oklch(0.245 0.010 228);
-  --muted-foreground: oklch(0.660 0.016 225);
+  --foreground: oklch(0.95 0.008 250);
+  --muted: oklch(0.26 0.022 255);
+  --muted-foreground: oklch(0.70 0.020 255);
 
-  --card: oklch(0.196 0.010 228);
-  --card-foreground: oklch(0.945 0.006 220);
-  --popover: oklch(0.232 0.011 228);
-  --popover-foreground: oklch(0.945 0.006 220);
+  --card: oklch(0.21 0.020 255);
+  --card-foreground: oklch(0.95 0.008 250);
+  --popover: oklch(0.24 0.021 255);
+  --popover-foreground: oklch(0.95 0.008 250);
 
-  /* The accent. Bright enough to lead the eye to the query. */
-  --primary: oklch(0.812 0.128 182);
-  --primary-foreground: oklch(0.175 0.025 200);
+  /* Action: buttons, links and focus. */
+  --primary: oklch(0.72 0.14 252);
+  --primary-foreground: oklch(0.18 0.03 255);
 
-  --secondary: oklch(0.245 0.010 228);
-  --secondary-foreground: oklch(0.945 0.006 220);
-  --accent: oklch(0.268 0.024 195);
-  --accent-foreground: oklch(0.880 0.060 188);
+  /* Verified: only what our code has checked. */
+  --verified: oklch(0.812 0.128 182);
+  --verified-foreground: oklch(0.175 0.025 200);
+  --verified-soft: oklch(0.880 0.060 188);
+
+  --secondary: oklch(0.26 0.022 255);
+  --secondary-foreground: oklch(0.95 0.008 250);
+  --accent: oklch(0.27 0.03 252);
+  --accent-foreground: oklch(0.88 0.06 250);
 
   --destructive: oklch(0.660 0.185 22);
   --destructive-foreground: oklch(0.985 0.005 20);
 
-  --border: oklch(0.288 0.012 228);
-  --input: oklch(0.268 0.012 228);
-  --ring: oklch(0.812 0.128 182);
+  --border: oklch(0.31 0.024 255);
+  --input: oklch(0.29 0.024 255);
+  --ring: oklch(0.72 0.14 252);
 
-  /* Status, kept separate from the accent so meaning is not overloaded. */
+  /* Status, kept separate from the accents so meaning is not overloaded. */
   --signal-ok: oklch(0.812 0.128 182);
   --signal-warn: oklch(0.800 0.130 78);
 
-  --chart-1: oklch(0.812 0.128 182);
-  --chart-2: oklch(0.700 0.110 210);
+  --chart-1: oklch(0.72 0.14 252);
+  --chart-2: oklch(0.812 0.128 182);
   --chart-3: oklch(0.640 0.090 250);
   --chart-4: oklch(0.800 0.130 78);
-  --chart-5: oklch(0.560 0.060 228);
+  --chart-5: oklch(0.560 0.060 255);
 
   --radius: 0.5rem;
 
-  --sidebar: oklch(0.196 0.010 228);
-  --sidebar-foreground: oklch(0.945 0.006 220);
-  --sidebar-primary: oklch(0.812 0.128 182);
-  --sidebar-primary-foreground: oklch(0.175 0.025 200);
-  --sidebar-accent: oklch(0.245 0.010 228);
-  --sidebar-accent-foreground: oklch(0.945 0.006 220);
-  --sidebar-border: oklch(0.288 0.012 228);
-  --sidebar-ring: oklch(0.812 0.128 182);
+  --sidebar: oklch(0.21 0.020 255);
+  --sidebar-foreground: oklch(0.95 0.008 250);
+  --sidebar-primary: oklch(0.72 0.14 252);
+  --sidebar-primary-foreground: oklch(0.18 0.03 255);
+  --sidebar-accent: oklch(0.26 0.022 255);
+  --sidebar-accent-foreground: oklch(0.95 0.008 250);
+  --sidebar-border: oklch(0.31 0.024 255);
+  --sidebar-ring: oklch(0.72 0.14 252);
 }
 
 @layer base {
@@ -128,7 +139,7 @@
        the page has depth without a gradient hero. */
     background-image: radial-gradient(
       120rem 40rem at 50% -18rem,
-      oklch(0.812 0.128 182 / 0.07),
+      oklch(0.72 0.14 252 / 0.09),
       transparent 70%
     );
     background-repeat: no-repeat;

@@ -33,11 +33,14 @@ function decodePart(part: string): string {
   return decodeURIComponent(part.replace(/\+/g, ' '));
 }
 
-/** Shorten the host and service path; the entity set is the part that matters. */
-function shortenBase(base: string): string {
-  const match = /\/([A-Za-z_]+)$/.exec(base);
-  return match ? `…/${match[1]}` : base;
+/** Shorten the host; the service and entity set are the parts that matter. */
+function shortenBase(base: string): { service: string; entitySet: string } {
+  const match = /\/([A-Za-z_]+)\/([A-Za-z_]+)$/.exec(base);
+  return match ? { service: `…/${match[1]}/`, entitySet: match[2] } : { service: '', entitySet: base };
 }
+
+/** Parameters that are plumbing rather than the question; shown dimmed. */
+const PLUMBING = new Set(['$format']);
 
 /**
  * Values longer than this are collapsed by default.
@@ -49,14 +52,12 @@ function shortenBase(base: string): string {
  */
 const COLLAPSE_OVER = 240;
 
-/**
- * What our code built. The brightest element on the page, deliberately: the
- * whole product claim is that this is inspectable.
- */
+/** What our code built, laid out one parameter per line. */
 export function QueryPanel({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const { base, params } = splitQuery(url);
+  const { service, entitySet } = shortenBase(base);
 
   async function copy() {
     try {
@@ -69,58 +70,68 @@ export function QueryPanel({ url }: { url: string }) {
   }
 
   return (
-    <div className="relative">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={copy}
-        aria-label={copied ? 'Query copied' : 'Copy full query URL'}
-        className="absolute right-0 top-0 size-7 text-muted-foreground hover:text-foreground"
-      >
-        {copied ? <Check className="size-3.5 text-signal-ok" /> : <Copy className="size-3.5" />}
-      </Button>
+    <div className="flex flex-col gap-2">
+      <pre className="overflow-x-auto rounded-lg border border-border bg-background px-3 py-2.5 font-mono text-[12px] leading-[1.7] whitespace-pre-wrap break-words">
+        <code>
+          <span className="text-muted-foreground">GET {service}</span>
+          <span className="text-foreground">{entitySet}</span>
+          {params.map(([key, value], index) => {
+            const long = value.length > COLLAPSE_OVER;
+            const open = expanded[key] ?? false;
+            const shown = long && !open ? value.slice(0, COLLAPSE_OVER) : value;
+            const separator = index === 0 ? '?' : '&';
 
-      <div className="pr-8">
-        <pre className="whitespace-pre-wrap break-words font-mono text-[12.5px] leading-relaxed">
-          <code>
-            <span className="text-muted-foreground">{shortenBase(base)}</span>
-            {params.map(([key, value]) => {
-              const long = value.length > COLLAPSE_OVER;
-              const open = expanded[key] ?? false;
-              const shown = long && !open ? value.slice(0, COLLAPSE_OVER) : value;
-
+            if (PLUMBING.has(key)) {
               return (
-                <span key={key} className="block pl-4">
-                  {/* The `?$key=` prefix must not break, or a long value pushes
-                      the `?` onto a line of its own. Only the value wraps. */}
-                  <span className="whitespace-nowrap">
-                    <span className="text-muted-foreground">?</span>
-                    <span className="text-primary">{key}</span>
-                    <span className="text-muted-foreground">=</span>
-                  </span>
-                  <span className="break-all text-foreground">{shown}</span>
-                  {long && (
-                    <>
-                      {!open && <span className="text-muted-foreground">…</span>}{' '}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpanded((current) => ({ ...current, [key]: !open }))
-                        }
-                        className="rounded text-[11px] text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                      >
-                        {open
-                          ? 'show less'
-                          : `show all ${value.length.toLocaleString()} characters`}
-                      </button>
-                    </>
-                  )}
+                <span key={key} className="block pl-3 text-muted-foreground">
+                  {separator}
+                  {key}={value}
                 </span>
               );
-            })}
-          </code>
-        </pre>
+            }
+
+            return (
+              <span key={key} className="block pl-3">
+                {/* The `&$key=` prefix must not break, or a long value pushes
+                    it onto a line of its own. Only the value wraps. */}
+                <span className="whitespace-nowrap">
+                  <span className="text-muted-foreground">{separator}</span>
+                  <span className="text-verified">{key}</span>
+                  <span className="text-muted-foreground">=</span>
+                </span>
+                <span className="break-all text-foreground">{shown}</span>
+                {long && (
+                  <>
+                    {!open && <span className="text-muted-foreground">…</span>}{' '}
+                    <button
+                      type="button"
+                      onClick={() => setExpanded((current) => ({ ...current, [key]: !open }))}
+                      className="rounded text-[11.5px] text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    >
+                      {open ? 'show less' : `show all ${value.length.toLocaleString()} characters`}
+                    </button>
+                  </>
+                )}
+              </span>
+            );
+          })}
+        </code>
+      </pre>
+      <div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={copy}
+          className="h-8 gap-1.5 text-xs"
+        >
+          {copied ? (
+            <Check className="size-3.5 text-verified" aria-hidden />
+          ) : (
+            <Copy className="size-3.5" aria-hidden />
+          )}
+          <span aria-live="polite">{copied ? 'Copied' : 'Copy URL'}</span>
+        </Button>
       </div>
     </div>
   );

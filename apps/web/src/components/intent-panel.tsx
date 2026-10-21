@@ -1,16 +1,22 @@
-import type { ResolvedQueryIntent } from '@saptalk/shared';
-import { Badge } from '@/components/ui/badge';
+import type { Filter, ResolvedQueryIntent } from '@saptalk/shared';
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    // Stacked on a phone: a fixed label column leaves too little room for
-    // field names like BusinessPartnerCategory, which then wrap mid-value.
-    <div className="grid grid-cols-1 items-start gap-1 py-2 sm:grid-cols-[4.5rem_1fr] sm:gap-3 sm:py-1.5">
-      <span className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground sm:pt-0.5">
-        {label}
-      </span>
-      <div className="min-w-0 font-mono text-[13px]">{children}</div>
-    </div>
+    <>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 font-mono">{children}</dd>
+    </>
+  );
+}
+
+function FilterLine({ filter, joiner }: { filter: Filter; joiner?: string }) {
+  return (
+    <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+      {joiner && <span className="text-muted-foreground">{joiner}</span>}
+      <span className="break-all">{filter.field}</span>
+      <span className="rounded bg-verified/12 px-1.5 text-verified">{filter.op}</span>
+      <span className="break-all">{filter.value}</span>
+    </span>
   );
 }
 
@@ -23,55 +29,35 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
  */
 export function IntentPanel({ intent }: { intent: ResolvedQueryIntent }) {
   return (
-    <div className="divide-y divide-border/60">
+    <dl className="grid grid-cols-[4.25rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[12.5px]">
       <Row label="Object">
-        {/* Now a real decision the model makes, not a constant. */}
-        <span className="text-primary">{intent.entity}</span>
+        <span className="text-verified">{intent.entity}</span>
       </Row>
 
       <Row label="Filters">
         {intent.filters.length === 0 ? (
           <span className="text-muted-foreground">none</span>
         ) : (
-          <div className="flex flex-col gap-1.5">
+          <span className="flex flex-col gap-1">
             {intent.filters.map((filter, index) => (
-              <div key={index} className="flex flex-wrap items-center gap-1.5">
-                {index > 0 && (
-                  <span className="text-[10px] uppercase text-muted-foreground">
-                    {intent.filterLogic}
-                  </span>
-                )}
-                <span className="text-foreground">{filter.field}</span>
-                <Badge
-                  variant="outline"
-                  className="h-5 rounded border-primary/30 bg-primary/10 px-1.5 font-mono text-[11px] font-normal text-primary"
-                >
-                  {filter.op}
-                </Badge>
-                <span className="text-accent-foreground">{filter.value}</span>
-              </div>
+              <FilterLine
+                key={index}
+                filter={filter}
+                joiner={index > 0 ? intent.filterLogic : undefined}
+              />
             ))}
-          </div>
+          </span>
         )}
       </Row>
 
-      {intent.related && (
+      {intent.related && intent.related.filters.length > 0 && (
         <Row label="Related">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-primary">{intent.related.entity}</span>
+          <span className="flex flex-col gap-1">
+            <span className="text-verified">{intent.related.entity}</span>
             {intent.related.filters.map((filter, index) => (
-              <div key={index} className="flex flex-wrap items-center gap-1.5">
-                <span className="text-foreground">{filter.field}</span>
-                <Badge
-                  variant="outline"
-                  className="h-5 rounded border-primary/30 bg-primary/10 px-1.5 font-mono text-[11px] font-normal text-primary"
-                >
-                  {filter.op}
-                </Badge>
-                <span className="text-accent-foreground">{filter.value}</span>
-              </div>
+              <FilterLine key={index} filter={filter} joiner={index > 0 ? 'and' : undefined} />
             ))}
-          </div>
+          </span>
         </Row>
       )}
 
@@ -79,17 +65,18 @@ export function IntentPanel({ intent }: { intent: ResolvedQueryIntent }) {
         {intent.orderBy.length === 0 ? (
           <span className="text-muted-foreground">none</span>
         ) : (
-          intent.orderBy.map((entry) => (
-            <div key={entry.field} className="text-foreground">
-              {entry.field}{' '}
-              <span className="text-muted-foreground">{entry.direction}</span>
-            </div>
-          ))
+          <span className="flex flex-col">
+            {intent.orderBy.map((entry) => (
+              <span key={entry.field}>
+                {entry.field} <span className="text-muted-foreground">{entry.direction}</span>
+              </span>
+            ))}
+          </span>
         )}
       </Row>
 
       <Row label="Limit">
-        <span className="tabular text-foreground">{intent.top}</span>
+        <span className="tabular">{intent.top}</span>
       </Row>
 
       <Row label="Columns">
@@ -97,6 +84,6 @@ export function IntentPanel({ intent }: { intent: ResolvedQueryIntent }) {
           {intent.select.length} field{intent.select.length === 1 ? '' : 's'}
         </span>
       </Row>
-    </div>
+    </dl>
   );
 }

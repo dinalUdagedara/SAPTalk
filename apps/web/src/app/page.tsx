@@ -1,44 +1,70 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
 import type { AskResponse } from '@saptalk/shared';
 import { AskBar } from '@/components/ask-bar';
 import { EmptyState } from '@/components/empty-state';
 import { ExampleQuestions } from '@/components/example-questions';
-import { IntentPanel } from '@/components/intent-panel';
-import { JoinNotice } from '@/components/join-notice';
-import { QueryPanel } from '@/components/query-panel';
-import { RejectionPanel } from '@/components/rejection-panel';
-import { ResultMetrics } from '@/components/result-metrics';
 import { ResultsTable } from '@/components/results-table';
-import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorPanel, LoadingState } from '@/components/status-panels';
+import { TracePanel } from '@/components/trace-panel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ApiError, askQuestion } from '@/lib/api';
+import { describeCount, describeIntent } from '@/lib/describe-intent';
+import { cn } from '@/lib/utils';
+
+/** One width for header and content, so their edges line up. */
+const CONTAINER = 'mx-auto w-full max-w-[1480px] px-4 sm:px-6 lg:px-10';
 
 export default function Home() {
   const [question, setQuestion] = useState('');
   const [result, setResult] = useState<AskResponse | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [loading, setLoading] = useState(false);
+  // Read out by screen readers when an answer lands. Errors announce
+  // themselves (role="alert"), and the loading panel is its own status.
+  const [announcement, setAnnouncement] = useState('');
+  const inFlight = useRef<AbortController | null>(null);
 
   async function run(text: string = question) {
     const trimmed = text.trim();
     if (!trimmed) return;
 
+    // A chip or "Try again" button is disabled or removed while the question
+    // runs; keep keyboard focus on the question instead of losing it.
+    document.getElementById('question')?.focus({ preventScroll: true });
+
+    const controller = new AbortController();
+    inFlight.current = controller;
     setLoading(true);
     setError(null);
+    setAnnouncement('');
+
     try {
-      setResult(await askQuestion(trimmed));
+      const answer = await askQuestion(trimmed, controller.signal);
+      setResult(answer);
+      setAnnouncement(`${describeCount(answer.entity, answer.count)} returned.`);
     } catch (caught) {
+      // Cancelled by the user: go back to whatever was on screen before.
+      if (controller.signal.aborted) return;
       setResult(null);
       setError(
-        caught instanceof ApiError
-          ? caught
-          : new ApiError('Something went wrong.', 0),
+        caught instanceof ApiError ? caught : new ApiError('Something went wrong.', 500),
       );
     } finally {
-      setLoading(false);
+      if (inFlight.current === controller) {
+        inFlight.current = null;
+        setLoading(false);
+      }
     }
+  }
+
+  function cancel() {
+    inFlight.current?.abort();
+    inFlight.current = null;
+    setLoading(false);
+    setAnnouncement('Question cancelled.');
   }
 
   function pickExample(example: string) {
@@ -46,145 +72,204 @@ export default function Home() {
     void run(example);
   }
 
+  /** The logo: back to the first screen, ready for a new question. */
+  function startOver() {
+    inFlight.current?.abort();
+    inFlight.current = null;
+    setLoading(false);
+    setResult(null);
+    setError(null);
+    setQuestion('');
+    setAnnouncement('');
+    window.scrollTo({ top: 0 });
+    // After React has swapped the layout back in.
+    requestAnimationFrame(() => document.getElementById('question')?.focus());
+  }
+
+  const idle = !loading && !error && !result;
+
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-border/70 bg-background/80 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4 sm:px-6">
-          <div className="flex items-baseline gap-2.5">
-            <span className="text-[15px] font-semibold tracking-tight">SAPTalk</span>
-            <span className="hidden text-xs text-muted-foreground sm:inline">
-              natural language to OData
+      <header className="sticky top-0 z-10 border-b border-border/80 bg-background/85 backdrop-blur">
+        <div className={cn(CONTAINER, 'flex h-14 items-center justify-between gap-3')}>
+          <div className="flex min-w-0 items-center gap-3">
+            <a
+              href="/"
+              onClick={(event) => {
+                event.preventDefault();
+                startOver();
+              }}
+              aria-label="SAPTalk, back to start"
+              className="-ml-1 flex items-center gap-2.5 rounded-lg px-1 py-1 transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <span
+                className="grid size-7 place-items-center rounded-md border border-border bg-surface"
+                aria-hidden
+              >
+                <ChevronRight className="size-4 text-verified" strokeWidth={3} />
+              </span>
+              <span className="text-[15px] font-semibold tracking-tight">SAPTalk</span>
+            </a>
+            <span className="hidden text-[13px] text-muted-foreground md:inline">
+              Natural language to OData
             </span>
           </div>
-          <div className="flex min-w-0 items-center gap-2 font-mono text-[11px] text-muted-foreground">
-            <span className="size-1.5 shrink-0 rounded-full bg-signal-ok" aria-hidden />
-            <span className="truncate">{result?.model ?? 'Business Partner sandbox'}</span>
-          </div>
+          <span className="truncate text-xs text-muted-foreground sm:text-[13px]">
+            S/4HANA Cloud sandbox<span className="hidden sm:inline">, Business Partner API</span>
+          </span>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 pb-24 pt-10 sm:px-6 sm:pt-12">
-        <h1 className="text-balance text-xl font-semibold tracking-tight sm:text-[28px]">
-          Ask about SAP business data
-        </h1>
-        <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-          Partners and their addresses. Plain English in, a validated OData query out — and you see the query every time.
+      <main className={cn(CONTAINER, 'pb-24', idle ? 'pt-10 sm:pt-16 lg:pt-24' : 'pt-8 sm:pt-10')}>
+        {/* One tree for both layouts, only the classes change: if the first
+            screen and the answer screen rendered separate ask bars, React
+            would swap the input out mid-question and keyboard focus would
+            drop to the page. */}
+        <div
+          className={cn(
+            'flex flex-col',
+            idle && 'gap-10 lg:flex-row lg:items-start lg:gap-16',
+          )}
+        >
+          <div className={cn('min-w-0', idle && 'lg:flex-[6]')}>
+            <h1
+              className={cn(
+                'font-semibold text-balance',
+                idle
+                  ? 'max-w-[18ch] text-[32px] leading-[1.1] tracking-[-0.025em] sm:text-[44px]'
+                  : 'text-xl tracking-[-0.015em] sm:text-2xl',
+              )}
+            >
+              Ask SAP questions in plain English
+            </h1>
+            {idle && (
+              <p className="mt-4 max-w-[60ch] text-base leading-relaxed text-muted-foreground sm:text-[17px]">
+                SAPTalk turns your question into an OData query against SAP S/4HANA Cloud&apos;s
+                Business Partner sandbox, then shows you the rows and the exact query it ran.
+              </p>
+            )}
+            <div className={cn('flex flex-col', idle ? 'mt-8 gap-4' : 'mt-4 gap-3')}>
+              <AskBar
+                value={question}
+                onChange={setQuestion}
+                onSubmit={() => void run()}
+                loading={loading}
+                size={idle ? 'hero' : 'compact'}
+              />
+              <ExampleQuestions onPick={pickExample} disabled={loading} />
+            </div>
+          </div>
+          {idle && (
+            <div className="min-w-0 lg:flex-[4]">
+              <EmptyState />
+            </div>
+          )}
+        </div>
+
+        {!idle && (
+          <div className="mt-9">
+            {loading && <LoadingState onCancel={cancel} />}
+            {!loading && error && (
+              <ErrorPanel error={error} onRetry={() => void run()} onPick={pickExample} />
+            )}
+            {!loading && !error && result && <Result result={result} />}
+          </div>
+        )}
+
+        <p className="sr-only" role="status" aria-live="polite">
+          {announcement}
         </p>
-
-        <div className="mt-6 flex flex-col gap-3">
-          <AskBar
-            value={question}
-            onChange={setQuestion}
-            onSubmit={() => void run()}
-            loading={loading}
-          />
-          <ExampleQuestions onPick={pickExample} disabled={loading} />
-        </div>
-
-        <div className="mt-10">
-          {loading && <LoadingState />}
-
-          {!loading && error && <RejectionPanel error={error} />}
-
-          {!loading && !error && !result && <EmptyState />}
-
-          {!loading && result && <Result result={result} />}
-        </div>
       </main>
     </div>
   );
 }
 
 function Result({ result }: { result: AskResponse }) {
-  return (
-    <div className="flex flex-col gap-5">
-      <ResultMetrics result={result} />
+  const heading = describeCount(result.entity, result.count);
 
-      {/* Side by side on purpose: the left panel is what the model decided, the
-          right is what our code built from it. Seeing both together is the
-          product's whole argument. */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Intent" subtitle="what the model produced">
-          <IntentPanel intent={result.intent} />
-        </Panel>
-        <Panel title="OData" subtitle="what our code compiled">
-          <QueryPanel url={result.query} />
-        </Panel>
+  return (
+    <section aria-labelledby="answer-heading">
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+        <div className="min-w-0">
+          <h2 id="answer-heading" className="text-xl font-semibold tracking-[-0.01em] sm:text-[22px]">
+            {heading}
+          </h2>
+          <p className="mt-1 max-w-[80ch] text-[13.5px] text-muted-foreground">
+            {describeIntent(result.intent)}
+          </p>
+        </div>
+        <dl className="flex gap-5 text-[13px]">
+          <Metric label="Model" value={`${(result.modelMs / 1000).toFixed(1)}s`} />
+          <Metric label="SAP" value={`${(result.durationMs / 1000).toFixed(1)}s`} />
+          <Metric
+            label="Attempts"
+            value={String(result.attempts)}
+            warn={result.attempts > 1}
+          />
+        </dl>
       </div>
 
-      {/* Only present when the question needed two objects. */}
-      {result.related && <JoinNotice related={result.related} />}
+      <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-start">
+        {/* First in the DOM so a phone shows the query before 25 cards; moved
+            to the right on wide screens, where it stays in view while the rows
+            scroll. */}
+        <div className="min-w-0 lg:sticky lg:top-20 lg:order-last lg:max-h-[calc(100vh-6rem)] lg:w-[440px] lg:shrink-0 lg:overflow-y-auto xl:w-[480px]">
+          <TracePanel result={result} />
+        </div>
 
-      <Tabs defaultValue="results">
-        <TabsList className="max-w-full justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <TabsTrigger value="results">
-            Results
-            <span className="tabular ml-1.5 font-mono text-[11px] text-muted-foreground">
-              {result.count}
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="intent">Intent JSON</TabsTrigger>
-          <TabsTrigger value="raw">Raw SAP</TabsTrigger>
-        </TabsList>
+        <div className="min-w-0 flex-1">
+          <Tabs defaultValue="rows">
+            <TabsList className="h-9 max-w-full justify-start overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <TabsTrigger value="rows" className="px-3">
+                Rows
+                <span className="tabular font-mono text-[11px] text-muted-foreground">
+                  {result.count}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="intent" className="px-3">
+                Intent JSON
+              </TabsTrigger>
+              <TabsTrigger value="raw" className="px-3">
+                Raw SAP response
+              </TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="results">
-          <div className="overflow-hidden rounded-lg border border-border bg-surface/40">
-            <ResultsTable columns={result.columns} rows={result.data} />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="intent">
-          <JsonBlock value={result.intent} />
-        </TabsContent>
-
-        <TabsContent value="raw">
-          <JsonBlock value={result.raw} />
-        </TabsContent>
-      </Tabs>
-    </div>
+            <TabsContent value="rows" className="mt-1 rounded-xl focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+              <ResultsTable
+                columns={result.columns}
+                rows={result.data}
+                top={result.intent.top}
+                caption={`${heading} returned by SAP`}
+              />
+            </TabsContent>
+            <TabsContent value="intent" className="mt-1 rounded-xl focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+              <JsonBlock value={result.intent} />
+            </TabsContent>
+            <TabsContent value="raw" className="mt-1 rounded-xl focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+              <JsonBlock value={result.raw} />
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    </section>
   );
 }
 
-function Panel({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  children: React.ReactNode;
-}) {
+function Metric({ label, value, warn = false }: { label: string; value: string; warn?: boolean }) {
   return (
-    <section className="rounded-lg border border-border bg-surface/40 p-3 sm:p-4">
-      <header className="mb-3 flex items-baseline gap-2">
-        <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-foreground">
-          {title}
-        </h2>
-        <span className="text-[11px] text-muted-foreground">{subtitle}</span>
-      </header>
-      {children}
-    </section>
+    <div className="flex items-baseline gap-1.5">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={cn('tabular font-mono', warn ? 'text-signal-warn' : 'text-foreground')}>
+        {value}
+      </dd>
+    </div>
   );
 }
 
 function JsonBlock({ value }: { value: unknown }) {
   return (
-    <pre className="max-h-[28rem] overflow-auto rounded-lg border border-border bg-surface/40 p-4 font-mono text-[12px] leading-relaxed text-muted-foreground">
+    <pre className="max-h-[32rem] overflow-auto rounded-xl border border-border bg-surface/40 p-4 font-mono text-xs leading-relaxed text-muted-foreground">
       {JSON.stringify(value, null, 2)}
     </pre>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div className="flex flex-col gap-5" aria-busy="true" aria-live="polite">
-      <span className="sr-only">Running your question</span>
-      <Skeleton className="h-[4.5rem] w-full rounded-lg" />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Skeleton className="h-52 rounded-lg" />
-        <Skeleton className="h-52 rounded-lg" />
-      </div>
-      <Skeleton className="h-64 w-full rounded-lg" />
-    </div>
   );
 }

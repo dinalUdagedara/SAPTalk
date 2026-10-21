@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, ShieldQuestion } from 'lucide-react';
 import type { AskResponse } from '@saptalk/shared';
 import { AskBar } from '@/components/ask-bar';
 import { EmptyState } from '@/components/empty-state';
@@ -11,7 +11,12 @@ import { ErrorPanel, LoadingState } from '@/components/status-panels';
 import { TracePanel } from '@/components/trace-panel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ApiError, askQuestion } from '@/lib/api';
-import { describeCount, describeIntent } from '@/lib/describe-intent';
+import {
+  describeCount,
+  describeIntent,
+  filterableLabels,
+  isUnfiltered,
+} from '@/lib/describe-intent';
 import { cn } from '@/lib/utils';
 
 /** One width for header and content, so their edges line up. */
@@ -209,6 +214,8 @@ function Result({ result }: { result: AskResponse }) {
         </dl>
       </div>
 
+      {isUnfiltered(result.intent) && <UnfilteredNotice result={result} />}
+
       <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-start">
         {/* First in the DOM so a phone shows the query before 25 cards; moved
             to the right on wide screens, where it stays in view while the rows
@@ -252,6 +259,33 @@ function Result({ result }: { result: AskResponse }) {
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * Said out loud when nothing in the question narrowed the search.
+ *
+ * The model can only name allowlisted fields, so a question about data SAPTalk
+ * doesn't hold ("total revenue last quarter") runs unfiltered rather than
+ * failing. Without this, the first N rows would look like an answer.
+ */
+function UnfilteredNotice({ result }: { result: AskResponse }) {
+  return (
+    <div className="mt-4 flex items-start gap-3 rounded-xl border border-signal-warn/35 bg-signal-warn/[0.06] px-4 py-3">
+      <ShieldQuestion className="mt-0.5 size-4 shrink-0 text-signal-warn" aria-hidden />
+      <div className="text-[13px] text-muted-foreground">
+        <p>
+          <span className="font-medium text-foreground">
+            Nothing in this question matched a field SAPTalk can filter on,
+          </span>{' '}
+          so these are the first {result.intent.top} rows, unfiltered. Data outside the field
+          registry, such as revenue or invoices, can&apos;t be asked about.
+        </p>
+        <p className="mt-1">
+          You can filter on: {filterableLabels(result.entity).join(', ')}.
+        </p>
+      </div>
+    </div>
   );
 }
 

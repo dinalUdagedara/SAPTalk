@@ -1,14 +1,17 @@
 'use client';
 
-import { ShieldCheck } from 'lucide-react';
+import { ShieldQuestion } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
  * Questions chosen to show range, not just success: a date filter, a substring
  * match, one that routes to the address object, one that spans both objects and
- * needs a join, and one the data genuinely cannot answer -- degrading honestly
- * is part of what this demonstrates, so that one is labelled as a refusal
- * rather than left to look broken.
+ * needs a join, and one the data genuinely cannot answer.
+ *
+ * That last one is not refused: Structured Outputs only lets the model name
+ * allowlisted fields, so it drops "revenue" and the query runs unfiltered. The
+ * answer screen says so (see UnfilteredNotice) -- degrading honestly is part of
+ * what this demonstrates.
  */
 export const EXAMPLES = [
   'organisations added this year, newest first',
@@ -60,9 +63,9 @@ export function ExampleQuestions({
           onClick={() => onPick(REFUSAL_EXAMPLE)}
           className={cn(chip, 'border-dashed border-signal-warn/50 bg-transparent')}
         >
-          <ShieldCheck className="size-3.5 text-signal-warn" aria-hidden />
+          <ShieldQuestion className="size-3.5 text-signal-warn" aria-hidden />
           {REFUSAL_EXAMPLE}
-          <span className="text-signal-warn">(see a refusal)</span>
+          <span className="text-signal-warn">(data it can&apos;t answer)</span>
         </button>
       )}
     </div>

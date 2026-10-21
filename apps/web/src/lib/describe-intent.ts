@@ -56,6 +56,18 @@ function describeFilter(entity: EntityName, filter: Filter): string {
   return `${field.label} ${OPERATORS[filter.op].label} ${value}`;
 }
 
+/** "Name, Category, Created on…": what a question about this entity can filter on. */
+export function filterableLabels(entity: EntityName): string[] {
+  return Object.values(ENTITIES[entity].fields)
+    .filter((field) => field.filterable)
+    .map((field) => field.label);
+}
+
+/** True when nothing in the question narrowed the search. */
+export function isUnfiltered(intent: ResolvedQueryIntent): boolean {
+  return intent.filters.length === 0 && !(intent.related && intent.related.filters.length > 0);
+}
+
 /** "25 business partners" */
 export function describeCount(entity: EntityName, count: number): string {
   return `${count.toLocaleString('en-GB')} ${entityNoun(entity, count)}`;
